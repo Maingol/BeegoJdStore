@@ -69,10 +69,16 @@ func init() {
 	beego.Router(baseURL+"rights/:type", &controllers.RightsController{}, "get:GetRightsList")
 	beego.Router(baseURL+"roles", &controllers.RightsController{},
 		"get:GetRolesList;post:AddRole")
-	beego.Router(baseURL+"roles/:roleId/rights/:rightId", &controllers.RightsController{}, "delete:DeleteRight")
-	beego.Router(baseURL+"roles/:roleId/rights", &controllers.RightsController{}, "post:UpdateRoleRights")
+	beego.Router(baseURL+"roles/:roleId/rights/:rightId", &controllers.RightsController{},
+		"delete:DeleteRight")
+	beego.Router(baseURL+"roles/:roleId/rights", &controllers.RightsController{},
+		"post:UpdateRoleRights")
 	beego.Router(baseURL+"users/:id/role", &controllers.UsersController{}, "put:UpdateRole")
 	beego.Router(baseURL+"roles/:id", &controllers.RightsController{},
 		"put:UpdateRoleInfo;delete:DeleteRole")
+	beego.Router(baseURL+"categories", &controllers.GoodsController{},
+		"get:GetGoodsCate;post:AddGoodsCate")
+	beego.Router(baseURL+"categories/:id", &controllers.GoodsController{},
+		"put:UpdateCateName;delete:DeleteCate")
 
 }
