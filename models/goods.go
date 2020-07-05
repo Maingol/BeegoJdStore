@@ -5,6 +5,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/orm"
 	"github.com/astaxie/beego/validation"
+	"time"
 )
 
 // 数据库中sp_category表的模型
@@ -29,12 +30,14 @@ type GoodsCate struct {
 
 // 定义商品分类返回结果中每个分类的结构
 type ResGoodsCate struct {
-	CatId      int             `json:"cat_id"`
-	CatName    string          `json:"cat_name"`
-	CatPid     int             `json:"cat_pid"`
-	CatLevel   int             `json:"cat_level"`
-	CatDeleted bool            `json:"cat_deleted"`
-	Children   []*ResGoodsCate `json:"children"`
+	CatId      int    `json:"cat_id"`
+	CatName    string `json:"cat_name"`
+	CatPid     int    `json:"cat_pid"`
+	CatLevel   int    `json:"cat_level"`
+	CatDeleted bool   `json:"cat_deleted"`
+	/* omitempty标签的作用：如果该字段为空，则忽略
+	   -标签的作用：无论该字段是否为空，都忽略 */
+	Children []*ResGoodsCate `json:"children,omitempty"`
 }
 
 // 获取商品分类列表时，包含分页参数的返回结果中data的结构
@@ -73,6 +76,42 @@ type ResAddCate struct {
 // put请求中请求参数的结构体 接口：categories/:id
 type UpdateCateParams struct {
 	Cat_name string
+}
+
+// 数据库中sp_attribute表的模型
+type SpAttribute struct {
+	AttrId     int    `json:"attr_id" orm:"pk;auto"`
+	AttrName   string `json:"attr_name"`
+	CatId      int    `json:"cat_id"`
+	AttrSel    string `json:"attr_sel"`
+	AttrWrite  string `json:"attr_write"`
+	AttrVals   string `json:"attr_vals"`
+	DeleteTime *int   `json:"-"`
+}
+
+// 获取分类参数列表时返回的数据 接口：categories/:id/attributes 请求方式：get
+type ResAttrList struct {
+	Data []*SpAttribute `json:"data"`
+	Meta *ResMeta       `json:"meta"`
+}
+
+// post请求中请求参数的结构体 接口：categories/:id/attributes
+type AddAttrParams struct {
+	Attr_name string
+	Attr_sel  string
+	Attr_vals string
+}
+
+// 验证请求体中的参数是否包含Attr_vals字段 接口：categories/:id/attributes/:attrId 请求方式：put
+// 如果包含这个字段，且该字段值为空字符串"",则会报错——类型不匹配；如果不包含这个字段，解析出来后，该字段的值默认为0
+type ValidParamExist struct {
+	Attr_vals int
+}
+
+// 添加分类参数时返回的数据 接口：categories/:id/attributes 请求方式：post
+type ResAttr struct {
+	Data *SpAttribute `json:"data"`
+	Meta *ResMeta     `json:"meta"`
 }
 
 // 请求参数CatPid的自定义校验规则
@@ -190,8 +229,105 @@ func GetCate(id int, level int) ([]*ResGoodsCate, error) {
 	return resGoodsCats, nil
 }
 
+// 检验分类id是否存在
+func CateIdExist(id int) bool {
+	o := orm.NewOrm()
+	return o.QueryTable("sp_category").Filter("cat_id", id).Exist()
+}
+
+// 验证某一分类下的分类名称是否存在
+func AttrExist(id int, attrName, attrSel string) bool {
+	o := orm.NewOrm()
+	return o.QueryTable("sp_attribute").
+		Filter("attr_name", attrName).
+		Filter("cat_id", id).
+		Filter("attr_sel", attrSel).
+		Exist()
+}
+
+// 添加动态参数或者静态属性
+func AddAttr(id int, attrName, attrSel, attrVals string) (*SpAttribute, error) {
+	o := orm.NewOrm()
+	mapAttrWrite := map[string]string{"only": "manual", "many": "list"}
+	attr := &SpAttribute{
+		AttrName:  attrName,
+		CatId:     id,
+		AttrSel:   attrSel,
+		AttrWrite: mapAttrWrite[attrSel],
+		AttrVals:  attrVals,
+	}
+	_, err := o.Insert(attr)
+	if err != nil {
+		return attr, err
+	}
+	return attr, nil
+}
+
+// 检验当前分类id下的属性id是否存在
+func AttrIdExist(catId, attrId int) bool {
+	o := orm.NewOrm()
+	return o.QueryTable("sp_attribute").Filter("cat_id", catId).Filter("attr_id", attrId).Exist()
+}
+
+// 修改参数时验证某一分类下的分类名称是否存在
+func UpdateAttrExist(id, attrId int, attrName, attrSel string) bool {
+	o := orm.NewOrm()
+	return o.QueryTable("sp_attribute").
+		Exclude("attr_id", attrId).
+		Filter("attr_name", attrName).
+		Filter("cat_id", id).
+		Filter("attr_sel", attrSel).
+		Exist()
+}
+
+// 修改参数时验证属性类型是否正确
+func AttrSelExist(attrId int, attrSel string) bool {
+	o := orm.NewOrm()
+	return o.QueryTable("sp_attribute").
+		Filter("attr_id", attrId).
+		Filter("attr_sel", attrSel).
+		Exist()
+}
+
+// 修改参数
+func UpdateAttr(attrId int, attrName, attrVals string, valsInBody bool) (*SpAttribute, error) {
+	o := orm.NewOrm()
+	attr := &SpAttribute{AttrId: attrId}
+	err := o.Read(attr)
+	if err != nil {
+		return nil, err
+	}
+	attr.AttrName = attrName
+	if valsInBody {
+		attr.AttrVals = attrVals
+	}
+	_, err = o.Update(attr, "attr_name", "attr_vals")
+	if err != nil {
+		return nil, err
+	}
+	return attr, nil
+}
+
+// 删除参数
+func DeleteAttr(attrId int) error {
+	// 执行的是假删操作
+	o := orm.NewOrm()
+	attr := &SpAttribute{AttrId: attrId}
+	err := o.Read(attr, "attrId")
+	if err != nil {
+		return err
+	}
+	currentTime := int(time.Now().Unix())
+	attr.DeleteTime = &currentTime
+	_, err = o.Update(attr)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 //初始化模型
 func init() {
 	// 需要在init中注册定义的model
-	orm.RegisterModel(new(SpCategory))
+	orm.RegisterModel(new(SpCategory), new(SpAttribute))
 }
