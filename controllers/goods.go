@@ -3,11 +3,14 @@ package controllers
 import (
 	"JDStore/models"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/orm"
 	"github.com/astaxie/beego/validation"
+	"github.com/rs/xid"
+	"path"
 )
 
 type GoodsController struct {
@@ -498,11 +501,8 @@ func (this *GoodsController) UpdateAttr() {
 	err = json.Unmarshal(this.Ctx.Input.RequestBody, &validParamExist)
 	if err != nil {
 		logs.Error(err)
-		logs.Info("请求体中包含字段:Attr_vals")
 		valsInBody = true
 	} else {
-		logs.Info(validParamExist.Attr_vals)
-		logs.Info("请求体中不包含字段:Attr_vals")
 		valsInBody = false
 	}
 
@@ -624,5 +624,201 @@ func (this *GoodsController) DeleteAttr() {
 	// 返回成功信息
 	resAttr.Meta = &models.ResMeta{"删除参数成功", 200}
 	this.Data["json"] = resAttr
+	this.ServeJSON()
+}
+
+// 获取商品列表 接口：goods 请求方式：get
+func (this *GoodsController) GetGoodsList() {
+	var resGoodsList models.ResGoodsList
+
+	// 权限验证
+	hasRight := models.ValidateRight(this.Ctx, 153)
+	if !hasRight {
+		logs.Error("权限不足")
+		resGoodsList.Meta = &models.ResMeta{"权限不足", 403}
+		this.Data["json"] = resGoodsList
+		this.ServeJSON()
+		return
+	}
+
+	/* 获取数据 */
+	query := this.GetString("query")
+	pagenum, err := this.GetInt("pagenum")
+	if err != nil {
+		logs.Error("pagenum为空或类型错误")
+		resGoodsList.Meta = &models.ResMeta{"pagenum为空或类型错误", 400}
+		this.Data["json"] = resGoodsList
+		this.ServeJSON()
+		return
+	}
+	pagesize, err := this.GetInt("pagesize")
+	if err != nil {
+		logs.Error("pagesize为空或类型错误")
+		resGoodsList.Meta = &models.ResMeta{"pagesize为空或类型错误", 400}
+		this.Data["json"] = resGoodsList
+		this.ServeJSON()
+		return
+	}
+	if pagenum <= 0 {
+		logs.Error("pagenum必须大于0")
+		resGoodsList.Meta = &models.ResMeta{"pagenum必须大于0", 400}
+		this.Data["json"] = resGoodsList
+		this.ServeJSON()
+		return
+	}
+	if pagesize <= 0 {
+		logs.Error("pagesize必须大于0")
+		resGoodsList.Meta = &models.ResMeta{"pagesize必须大于0", 400}
+		this.Data["json"] = resGoodsList
+		this.ServeJSON()
+		return
+	}
+
+	// 验证完毕，执行查询操作
+	total, goodsList, err := models.GetGoodsList(query, pagenum, pagesize)
+	if err != nil {
+		logs.Error(err)
+		resGoodsList.Meta = &models.ResMeta{"查询执行出错", 400}
+		this.Data["json"] = resGoodsList
+		this.ServeJSON()
+		return
+	}
+
+	resGoodsList.Data = &models.ResGoodsData{total, pagenum, goodsList}
+	resGoodsList.Meta = &models.ResMeta{"获取商品数据列表成功", 200}
+	this.Data["json"] = resGoodsList
+	this.ServeJSON()
+}
+
+// 上传图片 接口：【请求路径：upload 请求方式：post】
+func (this *GoodsController) UploadPicture() {
+	var resUpload models.ResUpload
+
+	// 权限验证
+	hasRight := models.ValidateRight(this.Ctx, 150)
+	if !hasRight {
+		logs.Error("权限不足")
+		resUpload.Meta = &models.ResMeta{"权限不足", 403}
+		this.Data["json"] = resUpload
+		this.ServeJSON()
+		return
+	}
+
+	oriPicPath, err := UploadFile(&this.Controller, "uploadPicture")
+	if err != nil {
+		resUpload.Meta = &models.ResMeta{err.Error(), 400}
+		this.Data["json"] = resUpload
+		this.ServeJSON()
+		return
+	}
+	resUpload.Data = &models.ResUploadData{oriPicPath, "http://127.0.0.1:8700" + oriPicPath}
+	resUpload.Meta = &models.ResMeta{"上传图片成功", 200}
+	this.Data["json"] = resUpload
+	this.ServeJSON()
+
+	// 以下代码应该在添加商品接口中使用，此处仅用作测试
+	////读取本地文件
+	//imgData,err:=ioutil.ReadFile("."+oriPicPath)
+	//if err!=nil{
+	//	logs.Error("图片读取错误：",err)
+	//}
+	//buf:=bytes.NewBuffer(imgData)
+	//image,err:=imaging.Decode(buf)
+	//if err!=nil{
+	//	logs.Error("图片解码错误",err)
+	//}
+	////生成缩略图，尺寸800*800，并保存文件
+	//image=imaging.Resize(image, 800, 800, imaging.Lanczos)
+	//largePicPath:=strings.Replace(oriPicPath,".","_800×800.",-1)
+	//err=imaging.Save(image,"."+largePicPath)
+	//if err!=nil {
+	//	logs.Error("图片保存错误",err)
+	//}
+	//this.Ctx.WriteString("success")
+}
+
+// 封装上传文件函数
+func UploadFile(this *beego.Controller, filePath string) (string, error) {
+	// GetFile函数返回的三个对象分别是：文件字节流、文件头（结构体：包含文件大小、文件名称等信息）、错误信息
+	file, head, err := this.GetFile(filePath)
+	if head == nil {
+		return "", errors.New("获取文件头时出错")
+	}
+	if err != nil {
+		logs.Error("读取文件时出错，错误原因：", err)
+		return "", errors.New("读取文件时出错")
+	}
+	defer file.Close()
+	logs.Info(fmt.Sprintf("文件大小：%vB,%vK,%vM", head.Size, head.Size/1024, head.Size/1024/1024))
+
+	// 一般在后台执行文件上传之前还需要做一些相应的处理：
+	// 01、判断文件大小，如果文件太大则阻止上传操作。这里文件大小不能超过 500 kb
+	if head.Size > 500*1024 {
+		logs.Error("文件太大，请重新上传")
+		return "", errors.New("文件太大，请重新上传")
+	}
+
+	// 02、判断文件格式，这里必须是图片格式
+	// 获取字符串中的后缀名
+	ext := path.Ext(head.Filename)
+	if ext != ".jpg" && ext != ".png" && ext != ".jpeg" {
+		logs.Error("文件格式错误，请重新上传")
+		return "", errors.New("文件格式错误，请重新上传")
+	}
+
+	// 03、防止重名，因为很多用户都上传文件很容易导致重名的情况
+	fileName := xid.New().String()
+
+	// 原始图片的存储路径
+	oriPicPath := "/static/img/" + fileName + ext
+
+	// SaveToFile这个函数用于存储用户上传过来的文件（实体），数据库中存储的是文件路径
+	// 第一个参数是前端页面中上传文件组件的name属性值，第二个参数是存储路径
+	// 第二个参数的指定有些怪异，可能是beego框架的一个小bug：存储文件的时候要在路径前加一个点，取的时候就不能有这个点
+	err = this.SaveToFile(filePath, "."+oriPicPath)
+	if err != nil {
+		logs.Error("存储文件错误：", err)
+		return "", errors.New("存储文件错误：" + err.Error())
+	}
+	return oriPicPath, nil
+}
+
+// 添加商品 接口：【请求路径：goods 请求方式：post】
+func (this *GoodsController) AddGood() {
+	var resAddGood models.ResAddGood
+
+	// 权限验证
+	hasRight := models.ValidateRight(this.Ctx, 105)
+	if !hasRight {
+		logs.Error("权限不足")
+		resAddGood.Meta = &models.ResMeta{"权限不足", 403}
+		this.Data["json"] = resAddGood
+		this.ServeJSON()
+		return
+	}
+
+	// 获取请求体中的参数
+	var addGoodBody models.AddGoodBody
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &addGoodBody)
+	if err != nil {
+		logs.Error("参数解析错误:", err.Error())
+		resAddGood.Meta = &models.ResMeta{"参数解析错误", 400}
+		this.Data["json"] = resAddGood
+		this.ServeJSON()
+		return
+	}
+
+	resAddGoodData, err := models.AddGood(addGoodBody)
+	if err != nil {
+		logs.Error(err)
+		resAddGood.Meta = &models.ResMeta{"添加商品失败", 400}
+		this.Data["json"] = resAddGood
+		this.ServeJSON()
+		return
+	}
+
+	resAddGood.Data = resAddGoodData
+	resAddGood.Meta = &models.ResMeta{"添加商品成功", 200}
+	this.Data["json"] = resAddGood
 	this.ServeJSON()
 }

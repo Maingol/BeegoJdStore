@@ -84,4 +84,8 @@ func init() {
 		"get:GetAttrList;post:AddAttr")
 	beego.Router(baseURL+"categories/:id/attributes/:attrId", &controllers.GoodsController{},
 		"put:UpdateAttr;delete:DeleteAttr")
+	beego.Router(baseURL+"goods", &controllers.GoodsController{},
+		"get:GetGoodsList;post:AddGood")
+	beego.Router(baseURL+"upload", &controllers.GoodsController{},
+		"post:UploadPicture")
 }
