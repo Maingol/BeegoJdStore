@@ -822,3 +822,119 @@ func (this *GoodsController) AddGood() {
 	this.Data["json"] = resAddGood
 	this.ServeJSON()
 }
+
+// 修改商品信息
+func (this *GoodsController) UpdateGoodInfo() {
+	var resGoodInfo models.ResGoodInfo
+	// 权限验证
+	hasRight := models.ValidateRight(this.Ctx, 116)
+	if !hasRight {
+		resGoodInfo.Meta = &models.ResMeta{"权限不足", 403}
+		logs.Error("权限不足")
+		this.Data["json"] = resGoodInfo
+		this.ServeJSON()
+		return
+	}
+
+	// 获取数据
+	id, err := this.GetInt(":id")
+	if err != nil {
+		resGoodInfo.Meta = &models.ResMeta{"商品id错误", 400}
+		logs.Error("商品id错误")
+		this.Data["json"] = resGoodInfo
+		this.ServeJSON()
+		return
+	}
+
+	// 验证商品id是否存在
+	goodExists := models.GoodExists(id)
+	if !goodExists {
+		resGoodInfo.Meta = &models.ResMeta{"商品id不存在", 400}
+		logs.Error("商品id不存在")
+		this.Data["json"] = resGoodInfo
+		this.ServeJSON()
+		return
+	}
+
+	// 获取请求体中的参数
+	//good:=models.SpGoods{}
+	good := new(models.SpGoods)
+	err = json.Unmarshal(this.Ctx.Input.RequestBody, &good)
+	if err != nil {
+		resGoodInfo.Meta = &models.ResMeta{"请求体中参数错误", 400}
+		logs.Error("请求体中的参数错误")
+		this.Data["json"] = resGoodInfo
+		this.ServeJSON()
+		return
+	}
+	if good.GoodsName == "" {
+		resGoodInfo.Meta = &models.ResMeta{"商品名称不能为空", 400}
+		logs.Error("商品名称不能为空")
+		this.Data["json"] = resGoodInfo
+		this.ServeJSON()
+		return
+	}
+
+	// 执行数据库更新操作
+	resGood, err := models.UpdateGood(good, id)
+	if err != nil {
+		resGoodInfo.Meta = &models.ResMeta{"修改商品失败", 400}
+		logs.Error("修改商品失败", err)
+		this.Data["json"] = resGoodInfo
+		this.ServeJSON()
+		return
+	}
+	resGoodInfo.Data = &models.ResGoodInfoData{resGood.GoodsName, resGood.GoodsPrice, resGood.GoodsWeight}
+	resGoodInfo.Meta = &models.ResMeta{"修改商品成功", 200}
+	this.Data["json"] = resGoodInfo
+	this.ServeJSON()
+	return
+}
+
+// 删除商品接口
+func (this *GoodsController) DeleteGood() {
+	var resGoodInfo models.ResGoodInfo
+	// 权限验证
+	hasRight := models.ValidateRight(this.Ctx, 104)
+	if !hasRight {
+		resGoodInfo.Meta = &models.ResMeta{"权限不足", 403}
+		logs.Error("权限不足")
+		this.Data["json"] = resGoodInfo
+		this.ServeJSON()
+		return
+	}
+
+	// 获取数据
+	id, err := this.GetInt(":id")
+	if err != nil {
+		resGoodInfo.Meta = &models.ResMeta{"商品id错误", 400}
+		logs.Error("商品id错误")
+		this.Data["json"] = resGoodInfo
+		this.ServeJSON()
+		return
+	}
+
+	// 验证商品id是否存在
+	goodExists := models.GoodExists(id)
+	if !goodExists {
+		resGoodInfo.Meta = &models.ResMeta{"商品id不存在", 400}
+		logs.Error("商品id不存在")
+		this.Data["json"] = resGoodInfo
+		this.ServeJSON()
+		return
+	}
+
+	// 执行数据库更新操作（假删）
+	err = models.DeleteGood(id)
+	if err != nil {
+		resGoodInfo.Meta = &models.ResMeta{"删除商品失败", 400}
+		logs.Error("修改商品失败", err)
+		this.Data["json"] = resGoodInfo
+		this.ServeJSON()
+		return
+	}
+	resGoodInfo.Meta = &models.ResMeta{"删除商品成功", 200}
+	this.Data["json"] = resGoodInfo
+	this.ServeJSON()
+	return
+}

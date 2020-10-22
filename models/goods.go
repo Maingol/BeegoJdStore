@@ -50,7 +50,7 @@ type SpGoods struct {
 	GoodsName      string  `json:"goods_name"`
 	GoodsPrice     float64 `json:"goods_price"`
 	GoodsNumber    int     `json:"goods_number"`
-	GoodsWeight    int     `json:"goods_weight"`
+	GoodsWeight    float64 `json:"goods_weight"`
 	GoodsIntroduce string  `json:"-"`
 	GoodsBigLogo   string  `json:"-"`
 	GoodsSmallLogo string  `json:"-"`
@@ -84,7 +84,7 @@ type AddGoodBody struct {
 	Goods_cate      string
 	Goods_price     float64
 	Goods_number    int
-	Goods_weight    int
+	Goods_weight    float64
 	Goods_introduce string
 	Pics            []*PicBody
 	Attrs           []*AttrBody
@@ -106,7 +106,7 @@ type ResAddGoodData struct {
 	GoodsPrice     float64               `json:"goods_price"`
 	CatId          int                   `json:"-"`
 	GoodsNumber    int                   `json:"goods_number"`
-	GoodsWeight    int                   `json:"goods_weight"`
+	GoodsWeight    float64               `json:"goods_weight"`
 	GoodsIntroduce string                `json:"-"`
 	GoodsBigLogo   string                `json:"-"`
 	GoodsSmallLogo string                `json:"-"`
@@ -242,6 +242,66 @@ type ResUploadData struct {
 type ResUpload struct {
 	Data *ResUploadData `json:"data"`
 	Meta *ResMeta       `json:"meta"`
+}
+
+/* put请求中参数的结构 接口：goods/:id 请求方式：put  */
+type GetGoodParams struct {
+	GoodName   string
+	GoodPrice  float64
+	GoodWeight float64
+}
+
+/* 编辑商品返回的数据中data的结构 接口：goods/:id 请求方式：put */
+type ResGoodInfoData struct {
+	GoodName   interface{} `json:"goods_name"`
+	GoodPrice  interface{} `json:"goods_price"`
+	GoodWeight interface{} `json:"goods_weight"`
+}
+
+/* 编辑商品返回的数据的结构 接口：goods/:id 请求方式：put */
+type ResGoodInfo struct {
+	Data *ResGoodInfoData `json:"data"`
+	Meta *ResMeta         `json:"meta"`
+}
+
+// 根据商品id验证商品是否存在
+func GoodExists(id int) bool {
+	o := orm.NewOrm()
+	return o.QueryTable("sp_goods").Filter("goods_id", id).Exist()
+}
+
+// 删除商品
+func DeleteGood(id int) error {
+	o := orm.NewOrm()
+	err := o.Begin()
+	if err != nil {
+		return err
+	}
+	good := &SpGoods{GoodsId: id, IsDel: "1"}
+	_, err = o.Update(good, "is_del")
+	if err != nil {
+		o.Rollback()
+		return err
+	}
+	o.Commit()
+	return nil
+}
+
+// 修改商品
+func UpdateGood(good *SpGoods, id int) (*SpGoods, error) {
+	good.GoodsId = id
+	o := orm.NewOrm()
+	err := o.Begin()
+	if err != nil {
+		return nil, err
+	}
+	_, err = o.Update(good, "goods_name", "goods_price", "goods_weight")
+	if err != nil {
+		o.Rollback()
+		return nil, err
+	}
+	o.Commit()
+	return good, nil
 }
 
 // 根据图片路径，将该图在相同目录下生成大、中、小三张图片，并返回这三张图片的路径
