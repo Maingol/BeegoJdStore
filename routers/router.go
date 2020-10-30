@@ -58,7 +58,6 @@ func init() {
 		}
 	})
 
-	beego.Router("/", &controllers.MainController{})
 	beego.Router(baseURL+"login", &controllers.LoginController{}, "post:HandlePost")
 	beego.Router(baseURL+"menus", &controllers.MenusController{}, "get:HandleGetMenus")
 	beego.Router(baseURL+"users", &controllers.UsersController{},
@@ -90,4 +89,8 @@ func init() {
 		"post:UploadPicture")
 	beego.Router(baseURL+"goods/:id", &controllers.GoodsController{},
 		"put:UpdateGoodInfo;delete:DeleteGood")
+	beego.Router(baseURL+"orders", &controllers.OrdersController{},
+		"get:GetOrdersList")
+	beego.Router(baseURL+"orders/:order_id", &controllers.OrdersController{},
+		"put:UpdateOrderAddr")
 }
