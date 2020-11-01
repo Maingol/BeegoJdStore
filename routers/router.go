@@ -93,4 +93,6 @@ func init() {
 		"get:GetOrdersList")
 	beego.Router(baseURL+"orders/:order_id", &controllers.OrdersController{},
 		"put:UpdateOrderAddr")
+	beego.Router(baseURL+"reports/type/1", &controllers.ReportController{},
+		"get:GetReport")
 }
