@@ -10,12 +10,18 @@ import (
 	"github.com/astaxie/beego/context"
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/plugins/cors"
+	"net/http"
 	"strings"
 )
 
 func init() {
+
 	// 获取配置文件中定义的基准url
 	baseURL := beego.AppConfig.String("baseURL")
+
+	//透明static
+	beego.InsertFilter("/", beego.BeforeRouter, TransparentStatic)
+	beego.InsertFilter("/*", beego.BeforeRouter, TransparentStatic)
 
 	// 实现跨域
 	beego.InsertFilter("*", beego.BeforeRouter, cors.Allow(&cors.Options{
@@ -58,6 +64,7 @@ func init() {
 		}
 	})
 
+	beego.Router("/", &controllers.MainController{})
 	beego.Router(baseURL+"login", &controllers.LoginController{}, "post:HandlePost")
 	beego.Router(baseURL+"menus", &controllers.MenusController{}, "get:HandleGetMenus")
 	beego.Router(baseURL+"users", &controllers.UsersController{},
@@ -95,4 +102,11 @@ func init() {
 		"put:UpdateOrderAddr")
 	beego.Router(baseURL+"reports/type/1", &controllers.ReportController{},
 		"get:GetReport")
+}
+
+func TransparentStatic(ctx *context.Context) {
+	if strings.Index(ctx.Request.URL.Path, "v1/") >= 0 {
+		return
+	}
+	http.ServeFile(ctx.ResponseWriter, ctx.Request, "static/"+ctx.Request.URL.Path)
 }
