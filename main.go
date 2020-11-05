@@ -4,6 +4,7 @@ import (
 	_ "JDStore/routers"
 	"JDStore/utils"
 	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/orm"
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -16,12 +17,18 @@ func init() {
 	dbName := beego.AppConfig.String("dbName")
 
 	//注册mysql Driver
-	orm.RegisterDriver("mysql", orm.DRMySQL)
+	err := orm.RegisterDriver("mysql", orm.DRMySQL)
+	if err != nil {
+		logs.Error("注册mysql驱动失败", err)
+	}
 	//构造conn连接
 	//用户名:密码@tcp(url地址)/数据库
 	conn := dbUser + ":" + dbPassword + "@tcp(" + dbHost + ":" + dbPort + ")/" + dbName + "?charset=utf8"
 	//注册数据库连接
-	orm.RegisterDataBase("default", "mysql", conn)
+	err = orm.RegisterDataBase("default", "mysql", conn)
+	if err != nil {
+		logs.Error("注册mysql连接失败", err)
+	}
 }
 
 func main() {

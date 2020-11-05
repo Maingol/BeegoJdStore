@@ -1,0 +1,9 @@
+FROM golang:1.15
+#创建工作目录
+RUN mkdir -p /myWebApps
+#进入工作目录
+WORKDIR /myWebApps
+#将当前目录下的所有文件复制到指定位置
+COPY . /myWebApps
+#运行
+ENTRYPOINT ["./app"]

@@ -14,7 +14,7 @@ type ReportController struct {
 func (this ReportController) GetReport() {
 	var resReport models.ResReport
 	// 权限验证
-	hasRight := models.ValidateRight(this.Ctx, 145)
+	hasRight := models.ValidateRight(this.Ctx, 146)
 	if !hasRight {
 		resReport.Meta = &models.ResMeta{"权限不足", 403}
 		logs.Error("权限不足")

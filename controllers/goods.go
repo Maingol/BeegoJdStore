@@ -895,7 +895,7 @@ func (this *GoodsController) UpdateGoodInfo() {
 func (this *GoodsController) DeleteGood() {
 	var resGoodInfo models.ResGoodInfo
 	// 权限验证
-	hasRight := models.ValidateRight(this.Ctx, 104)
+	hasRight := models.ValidateRight(this.Ctx, 117)
 	if !hasRight {
 		resGoodInfo.Meta = &models.ResMeta{"权限不足", 403}
 		logs.Error("权限不足")
